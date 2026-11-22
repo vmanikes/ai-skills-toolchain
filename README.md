@@ -1,6 +1,6 @@
 # my-ai-skills
 
-A collection of AI agent skills for [Cursor](https://cursor.com). Each skill teaches the AI assistant a specialized workflow -- giving it structured, repeatable instructions for tasks that benefit from consistency.
+A collection of skills for AI coding agents such as Claude Code, Cursor, and others that support the [Agent Skills](https://agentskills.io) format. Each skill teaches the agent a specialized workflow -- giving it structured, repeatable instructions for tasks that benefit from consistency.
 
 ## Skills
 
@@ -8,6 +8,7 @@ A collection of AI agent skills for [Cursor](https://cursor.com). Each skill tea
 |-------|-------------|
 | [git-smart-commit](git-smart-commit/) | Analyzes local git changes and generates conventional commit messages |
 | [pr-review](pr-review/) | Performs structured pull request reviews across correctness, security, performance, and more |
+| [pr-preflight](pr-preflight/) | Pre-push check that adds observability, tests, alerts, and performance fixes to local changes using repo conventions |
 
 ### git-smart-commit
 
@@ -40,27 +41,57 @@ Every finding cites exact file and line locations. Output is tiered into Critica
 
 **Trigger phrases:** "review this PR", "review pull request #123", "code review my branch"
 
+### pr-preflight
+
+An author-side check you run on local changes *before* opening a PR. It fills observability, testing, and performance gaps first, following the conventions already in your repo.
+
+**What it does:**
+- Discovers the repo's existing logging, metrics, tracing, test, and alerting conventions
+- Suggests and (on approval) adds **metrics** (counter, gauge, histogram), **logs** (debug, info, warn, error), and **traces**, making sure every log carries enough context (correlation IDs, entity IDs, inputs, outcome, error) and checking label cardinality and PII
+- Suggests **unit and integration tests** and writes them failing-first: each test is seen failing without the change before it is seen passing with it
+- Proposes actionable **alerts** based on what the change does (error rate, latency, job absence, queue lag, saturation)
+- Flags **performance** issues (N+1, missing pagination/timeouts, unbounded memory) and pre-push hygiene (debug prints, secrets, undocumented config)
+- Ends with a readiness report: Ready / Ready with follow-ups / Not ready
+
+**Trigger phrases:** "preflight", "PR sanity check", "is this ready for a PR", "check my changes before I push"
+
 ## Installation
+
+These skills use the [Agent Skills](https://agentskills.io) format: a folder with a `SKILL.md` file. Any AI coding agent that supports it can load them, including Claude Code and Cursor.
+
+Agents look for skills one level deep (`<skills-dir>/<skill-name>/SKILL.md`), so link or copy each skill folder into your agent's skills directory rather than cloning the whole repo into it.
+
+| Agent | Personal (all projects) | Per-project (shared via the repo) |
+|-------|-------------------------|-----------------------------------|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Cursor | `~/.cursor/skills/` | `.cursor/skills/` |
+| Other agents | See your agent's docs for its skills directory | |
 
 ### Personal use (available across all your projects)
 
+Clone the repo once, then symlink each skill into your agent's skills directory so `git pull` keeps them up to date:
+
 ```bash
-# Clone into your Cursor skills directory
-git clone git@github.com:vmanikes/my-ai-skills.git ~/.cursor/skills/my-ai-skills
+git clone git@github.com:vmanikes/my-ai-skills.git ~/my-ai-skills
+```
+
+```bash
+SKILLS_DIR=~/.claude/skills   # or ~/.cursor/skills, etc.
+mkdir -p "$SKILLS_DIR" && for d in ~/my-ai-skills/*/; do [ -f "$d/SKILL.md" ] && ln -sfn "${d%/}" "$SKILLS_DIR/$(basename "$d")"; done
 ```
 
 ### Per-project (shared with your team via the repo)
 
-```bash
-# From your project root
-git subtree add --prefix=.cursor/skills/my-ai-skills git@github.com:vmanikes/my-ai-skills.git main --squash
-```
+Copy the skill folders you want into your agent's project skills directory and commit them:
 
-Or simply copy the skill folders you want into `.cursor/skills/` in your project.
+```bash
+mkdir -p .claude/skills   # or .cursor/skills, etc.
+cp -R ~/my-ai-skills/pr-preflight .claude/skills/
+```
 
 ### Verify
 
-After installation, the skills will appear in Cursor's skill list. You can confirm by asking the agent:
+Start a new agent session and ask:
 
 > "What skills do you have available?"
 
@@ -76,7 +107,7 @@ skill-name/
 └── scripts/          # Optional -- utility scripts
 ```
 
-The `SKILL.md` file contains YAML frontmatter (`name`, `description`) that Cursor uses for skill discovery, and a markdown body with the agent's instructions.
+The `SKILL.md` file contains YAML frontmatter (`name`, `description`) that agents use for skill discovery, and a markdown body with the agent's instructions. Some agents support extra frontmatter fields; for example, `disable-model-invocation: true` (used by `git-smart-commit`) tells Claude Code to run the skill only when invoked explicitly.
 
 ## Prerequisites
 
@@ -86,6 +117,7 @@ Some skills rely on external tools being available on your system:
 |-------|-------------|
 | git-smart-commit | `git` |
 | pr-review | `git`, [`gh` CLI](https://cli.github.com/) (for GitHub PR reviews) |
+| pr-preflight | `git`; [`rg`](https://github.com/BurntSushi/ripgrep) and [`fd`](https://github.com/sharkdp/fd) optional (falls back to `grep`) |
 
 ## Contributing
 
@@ -100,8 +132,9 @@ To add a new skill:
    ---
    ```
 3. Keep `SKILL.md` under 500 lines -- use separate reference files for detailed content
-4. Include trigger terms in the description so Cursor can auto-discover the skill
-5. Test the skill by invoking it in Cursor and verifying the output
+4. Include trigger terms in the description so agents can auto-discover the skill
+5. Keep each skill self-contained -- don't reference other skills in this repo, since users may install only one
+6. Test the skill by invoking it in at least one agent and verifying the output
 
 ## License
 
