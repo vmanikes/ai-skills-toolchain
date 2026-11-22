@@ -1,6 +1,7 @@
 ---
 name: pr-review
 description: Perform thorough pull request reviews covering correctness, security, performance, observability, backward compatibility, data migrations, and developer ergonomics. Use when the user asks to review a PR, examine a pull request, or requests a code review of a branch or GitHub PR link.
+license: MIT
 ---
 
 # PR Review

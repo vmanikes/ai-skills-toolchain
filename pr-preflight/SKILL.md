@@ -1,6 +1,7 @@
 ---
 name: pr-preflight
 description: Runs a pre-push quality check on local changes before a pull request is opened. Uses the repository's existing conventions to suggest and add metrics (counters, gauges, histograms), logs (debug, info, warn, error) and traces, then suggests unit and integration tests, alerts for the new behavior, and performance optimizations. Use when the user says "preflight", "PR sanity check", "is this ready for a PR", "check my changes before I push", or "production-ready check".
+license: MIT
 ---
 
 # PR Preflight
