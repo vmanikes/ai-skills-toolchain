@@ -9,6 +9,7 @@ A collection of skills for AI coding agents such as Claude Code, Cursor, and oth
 | [git-smart-commit](git-smart-commit/) | Analyzes local git changes and generates conventional commit messages |
 | [pr-review](pr-review/) | Performs structured pull request reviews across correctness, security, performance, and more |
 | [pr-preflight](pr-preflight/) | Pre-push check that adds observability, tests, alerts, and performance fixes to local changes using repo conventions |
+| [db-design](db-design/) | Designs and reviews database tables, columns, indexes, queries, and migrations for relational and NoSQL databases |
 
 ### git-smart-commit
 
@@ -54,6 +55,20 @@ An author-side check you run on local changes *before* opening a PR. It fills ob
 - Ends with a readiness report: Ready / Ready with follow-ups / Not ready
 
 **Trigger phrases:** "preflight", "PR sanity check", "is this ready for a PR", "check my changes before I push"
+
+### db-design
+
+Designs new tables and reviews existing schemas, indexes, queries, and migrations, writing the approved changes in your repo's own migration or ORM format (Prisma, Django, Alembic, ActiveRecord, golang-migrate, Flyway, raw SQL, and more).
+
+**What it does:**
+- **Tables:** makes sure every table has `id`, `created_at`, and `updated_at`, with a monotonically increasing id (UUIDv7, ULID, or `BIGINT` identity) for relational databases and an id chosen by partitioning model for NoSQL (hash-partitioned like DynamoDB vs range-partitioned like Spanner/CockroachDB)
+- **Columns:** checks data types (money, timestamps, nullability, uniqueness), steers enums toward lookup tables or CHECK constraints, and flags foreign keys and `ON DELETE CASCADE` that will hurt large or write-heavy tables
+- **Indexes:** orders composite indexes by ESR (Equality, Sort, Range), suggests partial indexes for NULL-heavy or soft-deleted rows, and audits redundant, duplicate, and unused indexes
+- **Optimize indexes:** scans the codebase for every query on a table and maps each one to the index that serves it, then suggests indexes to add or drop
+- **Queries:** flags non-sargable filters, OFFSET pagination, N+1 queries, `SELECT *`, and reads `EXPLAIN` output
+- **Migrations:** rewrites risky DDL as online migrations (`CREATE INDEX CONCURRENTLY`, `NOT VALID` + `VALIDATE`, expand/contract renames, batched backfills)
+
+**Trigger phrases:** "design a table", "create a schema", "add an index", "optimize indexes", "review this migration", "why is this query slow"
 
 ## Installation
 
@@ -155,6 +170,7 @@ Some skills rely on external tools being available on your system:
 | git-smart-commit | `git` |
 | pr-review | `git`, [`gh` CLI](https://cli.github.com/) (for GitHub PR reviews) |
 | pr-preflight | `git`; [`rg`](https://github.com/BurntSushi/ripgrep) and [`fd`](https://github.com/sharkdp/fd) optional (falls back to `grep`) |
+| db-design | None; a database CLI (`psql`, `mysql`) is optional, for `EXPLAIN` output and index usage stats |
 
 ## Contributing
 
