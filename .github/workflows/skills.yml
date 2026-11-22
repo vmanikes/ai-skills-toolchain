@@ -1,0 +1,126 @@
+name: Skills
+
+# Pull requests: validate skills against the Agent Skills spec (dry run).
+# Pushes to main that touch a skill: validate, pick the next semver tag, and
+# publish a GitHub release with `gh skill publish`.
+#
+# Version bump (from commits since the last v* tag, conventional-commit style):
+#   type!: ... or "BREAKING CHANGE" -> major
+#   feat: ...                       -> minor
+#   anything else                   -> patch
+# Run the workflow manually to force a specific bump.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - README.md
+      - LICENSE
+      - .gitignore
+      - .github/**
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate skills
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Ensure gh has the skill command
+        run: |
+          if ! gh skill --help >/dev/null 2>&1; then
+            dir="$RUNNER_TEMP/gh"
+            mkdir -p "$dir"
+            gh release download --repo cli/cli --pattern 'gh_*_linux_amd64.tar.gz' --dir "$dir"
+            tar -xzf "$dir"/gh_*_linux_amd64.tar.gz -C "$dir"
+            echo "$(ls -d "$dir"/gh_*_linux_amd64)/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Dry-run publish
+        run: |
+          gh --version
+          gh skill publish --dry-run
+
+  release:
+    name: Publish release
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: skills-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Ensure gh has the skill command
+        run: |
+          if ! gh skill --help >/dev/null 2>&1; then
+            dir="$RUNNER_TEMP/gh"
+            mkdir -p "$dir"
+            gh release download --repo cli/cli --pattern 'gh_*_linux_amd64.tar.gz' --dir "$dir"
+            tar -xzf "$dir"/gh_*_linux_amd64.tar.gz -C "$dir"
+            echo "$(ls -d "$dir"/gh_*_linux_amd64)/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Determine next version
+        id: version
+        env:
+          BUMP_INPUT: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+
+          if git tag --points-at HEAD | grep -q '^v'; then
+            echo "HEAD is already released as $(git tag --points-at HEAD | grep '^v' | head -n1); skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          last=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$last" ]; then
+            next=v1.0.0
+          else
+            bump="${BUMP_INPUT:-auto}"
+            if [ "$bump" = auto ]; then
+              log=$(git log --format='%s%n%b' "$last..HEAD")
+              if grep -qE '^[a-z]+(\([^)]*\))?!:|BREAKING CHANGE' <<<"$log"; then
+                bump=major
+              elif grep -qE '^feat(\([^)]*\))?:' <<<"$log"; then
+                bump=minor
+              else
+                bump=patch
+              fi
+            fi
+            IFS=. read -r major minor patch <<<"${last#v}"
+            case "$bump" in
+              major) next="v$((major + 1)).0.0" ;;
+              minor) next="v$major.$((minor + 1)).0" ;;
+              patch) next="v$major.$minor.$((patch + 1))" ;;
+            esac
+          fi
+
+          echo "Last release: ${last:-none}; next: $next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: steps.version.outputs.skip != 'true'
+        run: gh skill publish --tag "${{ steps.version.outputs.tag }}"
