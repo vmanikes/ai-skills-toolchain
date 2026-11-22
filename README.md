@@ -61,7 +61,27 @@ These skills use the [Agent Skills](https://agentskills.io) format: a folder wit
 
 ### With the GitHub CLI (recommended)
 
-[`gh` CLI](https://cli.github.com/) 2.105+ installs skills into the right directory for your agent and can update them later:
+[`gh` CLI](https://cli.github.com/) 2.105+ can find, preview, install and update skills, and puts them in the right directory for your agent.
+
+#### Find a skill
+
+Search this repo's skills by keyword:
+
+```bash
+gh skill search pr --owner vmanikes
+```
+
+Other repositories publish skills with the same names (there are several `pr-preflight` skills on GitHub), so keep `--owner vmanikes` to see only the skills from this repo. In a terminal, the results are interactive: pick one or more skills and `gh` installs them for you.
+
+Search uses GitHub's code search API, which is rate-limited. If you see `API rate limit exceeded`, wait a minute and try again.
+
+To read a skill before installing it:
+
+```bash
+gh skill preview vmanikes/ai-skills-toolchain pr-preflight
+```
+
+#### Install a skill
 
 ```bash
 gh skill install vmanikes/ai-skills-toolchain pr-preflight --agent claude-code --scope user
@@ -72,7 +92,7 @@ gh skill install vmanikes/ai-skills-toolchain pr-preflight --agent claude-code -
 - `--all`: install every skill in this repo
 - `pr-preflight@v1.0.0`: install a specific release
 
-Update installed skills with:
+#### Update installed skills
 
 ```bash
 gh skill update --all
